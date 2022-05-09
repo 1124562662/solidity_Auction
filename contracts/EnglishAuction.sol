@@ -9,7 +9,14 @@ contract EnglishAuction is Auction {
     uint public biddingPeriod;
     uint public minimumPriceIncrement;
 
-    // TODO: place your code here
+    uint internal startTime;
+//    bool internal finished;
+    uint internal currentHighest;
+
+    bool internal firstBid;
+
+    address internal currentHighestBidder;
+
 
     // constructor
     constructor(address _sellerAddress,
@@ -24,16 +31,39 @@ contract EnglishAuction is Auction {
         biddingPeriod = _biddingPeriod;
         minimumPriceIncrement = _minimumPriceIncrement;
 
-        // TODO: place your code here
+        startTime = super.time();
+//        finished = false;
+        currentHighest = 0;
+        firstBid = true;
+        currentHighestBidder = address(0);
     }
 
     function bid() public payable{
-        // TODO: place your code here
+//        require(!finished);
+        uint currentTime = super.time();
+        require(currentTime < startTime + biddingPeriod);
+
+        if (firstBid){
+            require(msg.value >= initialPrice);
+            firstBid = false;
+        }else{
+            require(msg.value >= currentHighest + minimumPriceIncrement);
+        }
+        balances[currentHighestBidder] += currentHighest;
+        currentHighest = msg.value;
+        currentHighestBidder = msg.sender;
+        startTime = super.time();
     }
 
     // Need to override the default implementation
     function getWinner() public override view returns (address winner){
-        return winnerAddress;
-        // TODO: place your code here
+        uint currentTime = super.time();
+        if (currentTime >= startTime + biddingPeriod ){
+//            finished = true;
+//            winnerAddress = currentHighestBidder;
+//            balances[sellerAddress] += currentHighest;
+            return currentHighestBidder;
+        }
+        return address(0);
     }
 }

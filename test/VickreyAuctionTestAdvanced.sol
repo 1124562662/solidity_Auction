@@ -100,15 +100,15 @@ contract VickreyAuctionTestAdvanced {
 
         Assert.isTrue(alice.commitBid(500, 1000), "valid bid should be accepted");
         t.setTime(1);
-        
+
         Assert.isTrue(alice.commitBid(550, 0), "valid bid change should be accepted");
 
         revealBid(alice, 500, 14, false, "incorrect bid reveal should be rejected");
         revealBid(alice, 550, 14, true, "correct bid reveal should be accepted");
-       
+
         t.setTime(20);
         Assert.equal(address(alice), testAuction.getWinner(), "winner should be declared after auction end");
-                                
+
         testAuction.finalize();
 
         Assert.equal(address(alice).balance, 3450, "winner should not receive early refund");
@@ -162,6 +162,7 @@ contract VickreyAuctionTestAdvanced {
         t.setTime(20);
 
         Assert.equal(address(carol), testAuction.getWinner(), "winner should be declared after auction end");
+
         testAuction.finalize();
 
         alice.callWithdraw();

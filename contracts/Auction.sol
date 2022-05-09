@@ -10,8 +10,10 @@ contract Auction {
     address internal sellerAddress;
     address internal winnerAddress;
     uint winningPrice;
+    bool internal afterFinaliseOrWithdraw = false;
+    bool internal locked;
+    mapping(address=>uint) internal balances;
 
-    // TODO: place your code here
 
     // constructor
     constructor(address _sellerAddress,
@@ -23,6 +25,7 @@ contract Auction {
         sellerAddress = _sellerAddress;
         if (sellerAddress == address(0))
           sellerAddress = msg.sender;
+        locked =false;
     }
 
     // This is provided for testing
@@ -46,13 +49,33 @@ contract Auction {
     // If no judge is specified, anybody can call this.
     // If a judge is specified, then only the judge or winning bidder may call.
     function finalize() public virtual {
-        // TODO: place your code here
+
+        require(winnerAddress != address(0), 'the auction is not over.');
+
+        if (judgeAddress != address(0)){
+            require(msg.sender == judgeAddress || msg.sender == winnerAddress,
+                'If a judge is specified, then only the judge or winning bidder may call.');
+        }
+        require(!afterFinaliseOrWithdraw);
+        balances[sellerAddress] += winningPrice;
+        afterFinaliseOrWithdraw = true;
     }
 
     // This can ONLY be called by seller or the judge (if a judge exists).
     // Money should only be refunded to the winner.
     function refund() public {
-        // TODO: place your code here
+
+        require(winnerAddress != address(0), 'the auction is not over.');
+
+        if (judgeAddress != address(0)){
+            require(msg.sender == judgeAddress || msg.sender == sellerAddress,
+                'This can ONLY be called by seller or the judge');
+        }else{
+            require( msg.sender == sellerAddress, 'This can ONLY be called by seller ');
+        }
+        require(!afterFinaliseOrWithdraw);
+        balances[winnerAddress] += winningPrice;
+        afterFinaliseOrWithdraw = true;
     }
 
     // Withdraw funds from the contract.
@@ -61,7 +84,18 @@ contract Auction {
     // Ensure that your withdrawal functionality is not vulnerable to
     // re-entrancy or unchecked-spend vulnerabilities.
     function withdraw() public {
-        //TODO: place your code here
+
+        require(!locked, "No re-entrancy");
+        locked = true;
+
+
+        if (balances[msg.sender]>0){
+            uint amount = balances[msg.sender];
+            balances[msg.sender] -= amount;
+            payable(msg.sender).transfer(amount);
+        }
+
+        locked = false;
     }
 
 }

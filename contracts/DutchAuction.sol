@@ -8,8 +8,9 @@ contract DutchAuction is Auction {
     uint public initialPrice;
     uint public biddingPeriod;
     uint public offerPriceDecrement;
+    uint internal startTime;
+    bool internal finished;
 
-    // TODO: place your code here
 
     // constructor
     constructor(address _sellerAddress,
@@ -24,12 +25,27 @@ contract DutchAuction is Auction {
         biddingPeriod = _biddingPeriod;
         offerPriceDecrement = _offerPriceDecrement;
 
-        // TODO: place your code here
+        startTime = super.time();
+        finished = false;
+
     }
 
 
     function bid() public payable{
-        // TODO: place your code here
+        require(!finished, 'finished');
+        uint currentTime = super.time();
+        require(currentTime >= startTime, 'can only bid after the start time');
+        require(currentTime - startTime < biddingPeriod, 'within period');
+        uint currentPrice = initialPrice - (currentTime - startTime) * offerPriceDecrement;
+        require(msg.value >= currentPrice);
+        winnerAddress = msg.sender;
+        winningPrice = currentPrice;
+        finished = true;
+
+        balances[sellerAddress] += currentPrice;
+        if(msg.value - currentPrice > 0){
+            balances[winnerAddress] += msg.value - currentPrice;
+        }
     }
 
 }

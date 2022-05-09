@@ -10,7 +10,10 @@ contract VickreyAuction is Auction {
     uint public revealDeadline;
     uint public bidDepositAmount;
 
-    // TODO: place your code here
+    mapping(address =>bytes32 ) internal commitments;
+//    mapping(address =>uint) internal bidMapping;
+    address[] internal bidAddress;
+    uint[] internal bidValues;
 
     // constructor
     constructor(address _sellerAddress,
@@ -26,8 +29,6 @@ contract VickreyAuction is Auction {
         bidDepositAmount = _bidDepositAmount;
         biddingDeadline = time() + _biddingPeriod;
         revealDeadline = time() + _biddingPeriod + _revealPeriod;
-
-        // TODO: place your code here
     }
 
     // Record the player's bid commitment
@@ -35,27 +36,100 @@ contract VickreyAuction is Auction {
     // Bidders can update their previous bid for free if desired.
     // Only allow commitments before biddingDeadline
     function commitBid(bytes32 bidCommitment) public payable {
-        // TODO: place your code here
+        require(time() < biddingDeadline);
+        if (commitments[msg.sender] == 0){
+            // first time bid
+            require(msg.value == bidDepositAmount);
+        }else{
+            require(msg.value == 0);
+        }
+        commitments[msg.sender] = bidCommitment;
     }
 
     // Check that the bid (msg.value) matches the commitment.
     // If the bid is correctly opened, the bidder can withdraw their deposit.
     function revealBid(bytes32 nonce) public payable{
-        // TODO: place your code here
+        require(time() >=biddingDeadline);
+        require(time() < revealDeadline);
+        uint  bidValue = msg.value;
+        require( keccak256(abi.encodePacked( bidValue, nonce)) == commitments[msg.sender]);
+        commitments[msg.sender] = 0;
+//
+//        bidMapping[msg.sender] = bidValue;
+        bidAddress.push(msg.sender);
+        bidValues.push(bidValue);
     }
 
     // Need to override the default implementation
     function getWinner() public override view returns (address winner){
-        // TODO: place your code here
-        return winnerAddress;
+        require(time()>= revealDeadline);
+
+        if(bidValues.length == 0){
+            return address(0);
+        }
+
+        if(bidValues.length == 1){
+            return bidAddress[0];
+        }
+
+        if (bidValues.length > 1){
+            address firstAddress = address(0);
+            uint firstPrice = 0;
+
+            for (uint i = 0; i < bidValues.length; i++){
+                if(bidValues[i] >= firstPrice){
+                    firstPrice = bidValues[i];
+                    firstAddress = bidAddress[i];
+                }
+            }
+            return firstAddress;
+        }
+        return address(0);
     }
 
     // finalize() must be extended here to provide a refund to the winner
     // based on the final sale price (the second highest bid, or reserve price).
     function finalize() public override {
-        // TODO: place your code here
+        require(time()>= revealDeadline);
 
-        // call the general finalize() logic
-        super.finalize();
+        if(bidValues.length == 1){
+            winnerAddress = bidAddress[0];
+            winningPrice = minimumPrice;
+            balances[winnerAddress] = bidDepositAmount + bidValues[0] - winningPrice;
+        }
+        if (bidValues.length > 1){
+            address firstAddress = address(0);
+            uint firstPrice = 0;
+            uint secondPrice = 0;
+
+            for (uint i = 0; i < bidValues.length; i++){
+                if(bidValues[i] >= firstPrice){
+                    secondPrice = firstPrice;
+                    firstPrice = bidValues[i];
+                    firstAddress = bidAddress[i];
+                }else{
+                    if(bidValues[i] >= secondPrice){
+                        secondPrice = bidValues[i];
+                    }
+                }
+            }
+
+            winnerAddress = firstAddress;
+            winningPrice = secondPrice;
+
+            for (uint i = 0; i < bidValues.length; i++){
+                if (bidAddress[i] != winnerAddress){
+                    balances[bidAddress[i]] = bidDepositAmount + bidValues[i];
+                }
+            }
+            balances[winnerAddress] = (bidDepositAmount + firstPrice - winningPrice);
+
+        }
+
+        require(winnerAddress != address(0), 'the auction is not over.');
+        require(!afterFinaliseOrWithdraw);
+        balances[sellerAddress] += winningPrice;
+        afterFinaliseOrWithdraw = true;
     }
+
 }
